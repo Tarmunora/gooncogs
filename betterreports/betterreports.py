@@ -244,8 +244,6 @@ class BetterReports(commands.Cog):
                     report_url = message.jump_url
             except discord.errors.Forbidden:
                 pass
-        print(channel)
-        print(author)
         if await self.bot.embed_requested(channel):
             embed_colour = await (
                 ctx.embed_colour()
