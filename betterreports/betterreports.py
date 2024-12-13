@@ -16,10 +16,6 @@ from redbot.core.i18n import Translator, cog_i18n, set_contextual_locales_from_g
 from redbot.core.utils.predicates import MessagePredicate
 from redbot.core.utils.tunnel import Tunnel
 
-from discord_slash import SlashCommand, SlashContext
-from discord_slash.cog_ext import cog_slash
-
-
 _ = Translator("Reports", __file__)
 
 log = logging.getLogger("red.goon.reports")
@@ -63,14 +59,11 @@ class BetterReports(commands.Cog):
         self.tunnel_store = {}
         # (guild, ticket#):
         #   {'tun': Tunnel, 'msgs': List[int]}
-        self.bot.slash.get_cog_commands(self)
 
     @property
     def default_guild(self):
         return self.bot.get_guild(182249960895545344)
 
-    def cog_unload(self):
-        self.bot.slash.remove_cog_commands(self)
 
     async def red_delete_data_for_user(
         self,
@@ -251,7 +244,9 @@ class BetterReports(commands.Cog):
                     report_url = message.jump_url
             except discord.errors.Forbidden:
                 pass
-        if await self.bot.embed_requested(channel, author):
+        print(channel)
+        print(author)
+        if await self.bot.embed_requested(channel):
             embed_colour = await (
                 ctx.embed_colour()
                 if hasattr(ctx, "embed_colour")
@@ -262,7 +257,7 @@ class BetterReports(commands.Cog):
             em = discord.Embed(description=desc, colour=embed_colour)
             em.set_author(
                 name=title,
-                icon_url=author.avatar_url
+                icon_url=author.avatar.url
                 if not anonymous
                 else "https://cdn.discordapp.com/attachments/826191787991367721/826203765467381780/unknown.png",
             )
@@ -298,7 +293,7 @@ class BetterReports(commands.Cog):
         if ctx.guild:
             await ctx.message.delete()
             await ctx.send(
-                f"{ctx.author.mention} Please use this command in DMs with the bot (or use the /report version)."
+                f"{ctx.author.mention} Please use this command in DMs with the bot."
             )
             return
         return await self._report(ctx=ctx, _report=_report, anonymous=False)
@@ -311,8 +306,9 @@ class BetterReports(commands.Cog):
         `[p]report <text>` to use it non-interactively.
         """
         if ctx.guild:
+            await ctx.message.delete()
             await ctx.send(
-                "Please use this command in DMs with the bot (or use the /report version)."
+                "Please use this command in DMs with the bot."
             )
             return
         return await self._report(ctx=ctx, _report=_report, anonymous=True)
@@ -444,34 +440,6 @@ class BetterReports(commands.Cog):
                     await ctx.message.delete()
                 except discord.NotFound:
                     pass
-
-    async def _report_slash(self, ctx: SlashContext, report: str, anonymous: bool):
-        try:
-            result = await self._report(
-                ctx=ctx,
-                _report=report,
-                anonymous=anonymous,
-                default_guild=self.default_guild,
-                reply_command=lambda x: ctx.send(x, hidden=True),
-            )
-            if ctx.author.id in self.user_cache:
-                self.user_cache.remove(ctx.author.id)
-        except Exception as e:
-            import traceback
-
-            await ctx.send("Something broke, sorry!", hidden=True)
-            return await ctx.bot.send_to_owners(traceback.format_exc())
-
-    @cog_slash(name="report", description="Report something to the administrators. Use in-game adminhelp instead for in-game matters.")
-    async def slash_report(self, ctx: SlashContext, report: str):
-        await self._report_slash(ctx, report, False)
-
-    @cog_slash(
-        name="reportanon",
-        description="Report something to the administrators anonymously.",
-    )
-    async def slash_reportanon(self, ctx: SlashContext, report: str):
-        await self._report_slash(ctx, report, True)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
